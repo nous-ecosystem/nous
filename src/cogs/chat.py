@@ -1,6 +1,6 @@
 from discord.ext import commands
 from dependency_injector.wiring import inject, Provide
-from core.containers import Container
+from containers import Container
 from services.llm.manager import LLMManager
 
 
