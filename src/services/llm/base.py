@@ -1,6 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Any, Union
 from enum import Enum
+from dependency_injector.wiring import inject, Provide
+from containers import Container
+from utils.logging import BotLogger
+from utils.decorators import with_logger
 
 
 class EmbeddingType(str, Enum):
@@ -8,12 +12,17 @@ class EmbeddingType(str, Enum):
     IMAGE = "image"
 
 
+@with_logger
 class BaseLLMProvider(ABC):
     """Base class for all LLM providers"""
 
-    def __init__(self, api_key: str, **kwargs):
+    @inject
+    def __init__(
+        self, api_key: str, logger: BotLogger = Provide[Container.logger], **kwargs
+    ):
         self.api_key = api_key
         self.extra_config = kwargs
+        self.logger.debug(f"Initialized {self.__class__.__name__}")
 
     @abstractmethod
     async def generate(

@@ -4,12 +4,20 @@ from services.llm.providers.openai import OpenAIProvider
 from services.llm.providers.cohere import CohereProvider
 from services.llm.providers.groq import GroqProvider
 from core.config import Config
+from utils.logging import LoggerResolver
 
 
 class Container(containers.DeclarativeContainer):
     """Application container."""
 
     config = providers.Singleton(Config)
+
+    # Initialize logger first
+    _ = providers.Resource(
+        LoggerResolver.get_logger,
+        log_level=config.provided.logging.level,
+        log_dir=config.provided.logging.directory,
+    )
 
     # LLM Providers
     openai_provider = providers.Singleton(
