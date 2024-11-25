@@ -74,6 +74,46 @@ class DatabaseService:
         finally:
             session.close()
 
+    # Enhanced Redis operations
+    async def cache_str_set(
+        self, key: str, value: str, ttl: Optional[int] = None
+    ) -> bool:
+        return await self.redis.str_set(key, value, ttl)
+
+    async def cache_str_get(self, key: str, default: str = None) -> Optional[str]:
+        return await self.redis.str_get(key, default)
+
+    async def cache_hash_set(self, key: str, mapping: Dict[str, Any]) -> bool:
+        return await self.redis.hash_set(key, mapping)
+
+    async def cache_hash_get(self, key: str, field: str) -> Any:
+        return await self.redis.hash_get(key, field)
+
+    async def cache_json_set(self, key: str, value: Any, path: str = ".") -> bool:
+        return await self.redis.json_set(key, path, value)
+
+    async def cache_json_get(
+        self, key: str, path: str = ".", default: Any = None
+    ) -> Any:
+        return await self.redis.json_get(key, path, default)
+
+    async def create_vector_index(
+        self, schema: Dict[str, Any], overwrite: bool = False
+    ):
+        return await self.redis.create_vector_index(schema, overwrite)
+
+    async def vector_search(
+        self,
+        index_name: str,
+        vector: List[float],
+        vector_field: str,
+        return_fields: List[str] = None,
+        num_results: int = 10,
+    ):
+        return await self.redis.vector_search(
+            index_name, vector, vector_field, return_fields, num_results
+        )
+
     async def __aenter__(self):
         return self
 
