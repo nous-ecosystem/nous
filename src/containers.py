@@ -5,6 +5,7 @@ from services.llm.providers.cohere import CohereProvider
 from services.llm.providers.groq import GroqProvider
 from core.config import Config
 from utils.logging import LoggerResolver
+from services.database import DatabaseService
 
 
 class Container(containers.DeclarativeContainer):
@@ -49,3 +50,10 @@ class Container(containers.DeclarativeContainer):
         name="cohere", provider=cohere_provider
     )
     main_llm.provided.register_provider.call_with(name="groq", provider=groq_provider)
+
+    # Database service
+    database = providers.Singleton(
+        DatabaseService,
+        sqlite_path=config.provided.database.sqlite_path,
+        redis_url=f"redis://{config.provided.redis.host}:{config.provided.redis.port}",
+    )

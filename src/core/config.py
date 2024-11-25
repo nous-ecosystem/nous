@@ -74,6 +74,10 @@ class Config:
             level=os.getenv("LOG_LEVEL", "INFO"), directory=os.getenv("LOG_DIR", "logs")
         )
 
+        self.database = _ConfigSection(
+            sqlite_path=os.getenv("DATABASE_PATH", "data/db/bot.db"),
+        )
+
         self._initialized = True
 
     def _require_env(self, key: str, description: str) -> str:
