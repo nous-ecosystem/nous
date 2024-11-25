@@ -1,52 +1,69 @@
 from typing import Dict, Optional, Any, List
-from .core.session import SQLAlchemySession
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.future import select
 from .core.redis import RedisManager
 from .models.user import User
 from .models.conversation import Conversation
+from .init import init_database
 
 
 class DatabaseService:
     """Unified database service combining SQLAlchemy and Redis"""
 
     def __init__(
-        self, sqlite_path: str = "data/db/bot.db", redis_url: str = "redis://localhost"
+        self,
+        db_url: str = "mysql+aiomysql://user:pass@localhost:3306/botdb?charset=utf8mb4",
+        redis_url: str = "redis://localhost",
     ):
-        self.sql = SQLAlchemySession(sqlite_path)
+        self.db_url = db_url
         self.redis = RedisManager(redis_url)
+        self.engine = None
+        self.async_session = None
+
+    async def initialize(self):
+        """Initialize database connections"""
+        if not self.engine:
+            self.engine, self.async_session = await init_database(self.db_url)
+
+    async def get_session(self) -> AsyncSession:
+        """Get a new database session"""
+        if not self.async_session:
+            await self.initialize()
+        return self.async_session()
 
     async def close(self):
         """Close all database connections"""
+        if self.engine:
+            await self.engine.dispose()
         await self.redis.close()
 
     # User operations
     async def get_or_create_user(self, discord_id: str, username: str) -> User:
         """Get existing user or create new one"""
-        session = self.sql.get_session()
-        try:
-            user = session.query(User).filter_by(discord_id=discord_id).first()
+        async with await self.get_session() as session:
+            query = select(User).where(User.discord_id == discord_id)
+            result = await session.execute(query)
+            user = result.scalar_one_or_none()
+
             if not user:
                 user = User(discord_id=discord_id, username=username)
                 session.add(user)
-                session.commit()
+                await session.commit()
+
             return user
-        finally:
-            session.close()
 
     # Conversation operations
     async def create_conversation(
         self, user_id: str, channel_id: str, metadata: Dict = None
     ) -> Conversation:
         """Create new conversation"""
-        session = self.sql.get_session()
-        try:
+        async with await self.get_session() as session:
             conv = Conversation(
                 user_id=user_id, channel_id=channel_id, chat_metadata=metadata or {}
             )
             session.add(conv)
-            session.commit()
+            await session.commit()
             return conv
-        finally:
-            session.close()
 
     # Redis operations
     async def cache_set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:

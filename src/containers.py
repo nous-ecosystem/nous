@@ -54,6 +54,8 @@ class Container(containers.DeclarativeContainer):
     # Database service
     database = providers.Singleton(
         DatabaseService,
-        sqlite_path=config.provided.database.sqlite_path,
+        db_url=f"mysql+aiomysql://{config.provided.database.user}:"
+        f"{config.provided.database.password}@{config.provided.database.host}:"
+        f"{config.provided.database.port}/{config.provided.database.name}",
         redis_url=f"redis://{config.provided.redis.host}:{config.provided.redis.port}",
     )

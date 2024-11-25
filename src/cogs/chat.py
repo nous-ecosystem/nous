@@ -34,6 +34,16 @@ class ChatCog(commands.Cog):
                 metadata={"initial_message": message},
             )
 
+            # Cache conversation context in Redis
+            await self.db.cache_json_set(
+                f"conversation:{conversation.id}",
+                value={
+                    "user_id": user.discord_id,
+                    "channel_id": str(ctx.channel.id),
+                    "messages": [{"role": "user", "content": message}],
+                },
+            )
+
             # Get LLM response
             provider = self.llm.get_provider("openai")
             response = await provider.chat(
