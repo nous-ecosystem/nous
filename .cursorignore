@@ -1,0 +1,4 @@
+# Cursor ignore file
+
+# Ignore all files in the src/cogs directory
+src/cogs/*

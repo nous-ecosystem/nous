@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nous"
+version = "0.1.0"
+description = "A Discord bot"
+requires-python = ">=3.8"
+dependencies = [
+    "discord.py",
+    "python-dotenv",
+    "dependency-injector",
+    "aiohttp",
+    "sqlalchemy",
+    "aioredis",
+    "aiomysql",
+    "alembic",
+    "typing-extensions",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
+namespaces = false
