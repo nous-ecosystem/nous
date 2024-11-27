@@ -4,6 +4,7 @@ from src.utils.logging import LoggerContainer
 from src.core.client import NousBot
 from src.core.mod_manager import ModuleManagerContainer
 from src.services.llm.service import LLMContainer
+from src.services.database.service import DatabaseContainer
 
 
 class Container(containers.DeclarativeContainer):
@@ -24,6 +25,10 @@ class Container(containers.DeclarativeContainer):
     # LLM container
     llm = providers.Container(LLMContainer)
     llm.config.override(config)
+
+    # Database container
+    database = providers.Container(DatabaseContainer)
+    database.config.override(config)
 
     # Bot provider
     bot = providers.Singleton(
@@ -54,3 +59,4 @@ config = container.config.config()
 logger = container.logger.logger()
 module_manager = container.module_manager.module_manager()
 llm_manager = container.llm.llm_manager()
+db_manager = container.database.db_manager()

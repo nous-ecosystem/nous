@@ -156,3 +156,5 @@ prisma/dev.db
 .cursorrules
 my-snapconfine.pp
 my-snapconfine.te
+
+.agents/
