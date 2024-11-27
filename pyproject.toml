@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "nous"
+version = "0.1.0"
+description = ""
+authors = ["anthoeknee <pacyheb@protonmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+discord-py = "^2.4.0"
+pydantic = "^2.10.2"
+pydantic-settings = "^2.6.1"
+dependency-injector = "^4.43.0"
+redis = "^5.2.0"
+sqlalchemy = "^2.0.36"
+pymysql = "^1.1.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
