@@ -3,6 +3,7 @@ from src.core.config import ConfigContainer
 from src.utils.logging import LoggerContainer
 from src.core.client import NousBot
 from src.core.mod_manager import ModuleManagerContainer
+from src.services.llm.service import LLMContainer
 
 
 class Container(containers.DeclarativeContainer):
@@ -19,6 +20,10 @@ class Container(containers.DeclarativeContainer):
             LoggerContainer.logger.cls, log_config=config.logging_config
         )
     )
+
+    # LLM container
+    llm = providers.Container(LLMContainer)
+    llm.config.override(config)
 
     # Bot provider
     bot = providers.Singleton(
@@ -48,3 +53,4 @@ container = Container()
 config = container.config.config()
 logger = container.logger.logger()
 module_manager = container.module_manager.module_manager()
+llm_manager = container.llm.llm_manager()
