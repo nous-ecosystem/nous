@@ -45,7 +45,7 @@ async def setup_databases(
         message = await mysql_client.create(Message, {
             "content": "Hello, world!",
             "embedding": [0.1, 0.2, 0.3],
-            "metadata": {"source": "user"},
+            "message_metadata": {"source": "user"},
             "timestamp": time.time()
         })
 

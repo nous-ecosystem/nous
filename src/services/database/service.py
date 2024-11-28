@@ -7,7 +7,7 @@ class DatabaseContainer(containers.DeclarativeContainer):
     """Dependency Injection container for database services."""
 
     # Config dependencies
-    config = providers.DependencyProvider()
+    config = providers.Dependency()
 
     # Database manager singleton
     db_manager = providers.Singleton(DatabaseManager)

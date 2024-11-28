@@ -12,5 +12,5 @@ class Message(Base):
     id = Column(Integer, primary_key=True)
     content = Column(String, nullable=False)
     embedding = Column(JSON)  # Store vector embeddings
-    metadata = Column(JSON)  # Additional metadata
+    message_metadata = Column(JSON)  # Additional metadata
     timestamp = Column(Float, nullable=False)

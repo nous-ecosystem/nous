@@ -14,6 +14,8 @@ dependency-injector = "^4.43.0"
 redis = "^5.2.0"
 sqlalchemy = "^2.0.36"
 pymysql = "^1.1.1"
+lancedb = "^0.16.0"
+pandas = "^2.2.3"
 
 
 [build-system]
