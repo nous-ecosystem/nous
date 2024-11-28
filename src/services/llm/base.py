@@ -44,6 +44,28 @@ class LLMManager:
         self._cleanup_interval = cleanup_interval
         self._cleanup_task: Optional[asyncio.Task] = None
 
+    async def setup(self) -> None:
+        """Initialize the LLM manager."""
+        # Get configuration from container
+        from src.containers import config
+
+        # Register default providers
+        try:
+            # Register xAI provider
+            self.register(
+                LLMConfig(
+                    provider="xai",
+                    model="gpt-4",
+                    api_key=config.XAI__API_KEY,
+                    name="xai",
+                )
+            )
+
+            # Start cleanup task
+            await self.start()
+        except Exception as e:
+            raise RuntimeError(f"Failed to initialize LLM services: {str(e)}")
+
     async def start(self):
         """Start the cleanup task"""
         if not self._cleanup_task:

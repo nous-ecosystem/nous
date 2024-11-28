@@ -67,13 +67,39 @@ class NousBot(commands.Bot):
     async def setup_hook(self) -> None:
         """
         Async setup hook that runs before the bot starts.
-        Load extensions and perform any necessary async initialization here.
+        Initialize all services and load modules.
         """
-        # TODO: Add extension loading logic here
-        self.logger.info("Bot setup completed successfully")
+        self.logger.info("Starting bot initialization...")
+
+        try:
+            # Initialize module manager and load all modules
+            from src.containers import module_manager, llm_manager, db_manager
+
+            # Initialize database connections
+            self.logger.info("Initializing database connections...")
+            await db_manager.setup()
+
+            # Initialize LLM services
+            self.logger.info("Initializing LLM services...")
+            await llm_manager.setup()
+
+            # Load all modules
+            self.logger.info("Loading bot modules...")
+            loaded_modules = await module_manager.load_all_modules()
+            self.logger.info(
+                f"Successfully loaded modules: {', '.join(loaded_modules)}"
+            )
+
+            self.logger.info("Bot setup completed successfully")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize bot services: {str(e)}")
+            raise
 
     async def on_ready(self):
         """Event handler for when the bot has successfully connected to Discord."""
+        if self.user is None:
+            self.logger.error("Bot user is None in on_ready")
+            return
         self.logger.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
 
     async def on_error(self, event_method: str, *args, **kwargs):

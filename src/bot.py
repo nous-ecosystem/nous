@@ -1,19 +1,9 @@
 import asyncio
 import sys
-import os
-from pathlib import Path
-
 from dependency_injector.wiring import inject, Provide
 
 from src.containers import Container
 from src.core.client import NousBot
-
-# Add src directory to Python path
-ROOT_DIR = Path(__file__).parent.parent
-sys.path.append(str(ROOT_DIR))
-
-# Ensure we're in the correct directory for .env file loading
-os.chdir(ROOT_DIR)
 
 
 @inject

@@ -1,82 +1,63 @@
-from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Union
-from sqlalchemy.orm import Session
+from abc import ABC, abstractmethod
 
 
-class DatabaseClient(ABC):
-    """Abstract base class for database operations."""
+class RedisInterface(ABC):
+    """Interface for Redis operations."""
 
     @abstractmethod
     async def connect(self) -> None:
-        """Establish connection to the database."""
+        """Establish connection to Redis."""
         pass
 
     @abstractmethod
     async def disconnect(self) -> None:
-        """Close the database connection."""
+        """Close the Redis connection."""
         pass
 
     @abstractmethod
-    async def get_session(self) -> Session:
-        """Get a database session."""
+    async def json_set(self, key: str, value: Any) -> bool:
+        """Set a JSON value."""
         pass
 
     @abstractmethod
-    async def create(self, model: Any, data: Dict[str, Any]) -> Any:
-        """Create a new record."""
+    async def json_get(self, key: str) -> Optional[Any]:
+        """Get a JSON value."""
         pass
 
     @abstractmethod
-    async def read(self, model: Any, id: Union[str, int]) -> Optional[Any]:
-        """Read a record by ID."""
+    async def json_delete(self, key: str) -> bool:
+        """Delete a JSON value."""
         pass
 
     @abstractmethod
-    async def update(
-        self, model: Any, id: Union[str, int], data: Dict[str, Any]
-    ) -> Any:
-        """Update a record."""
+    async def set(self, key: str, value: str, ttl: Optional[int] = None) -> bool:
+        """Set a string value."""
         pass
 
     @abstractmethod
-    async def delete(self, model: Any, id: Union[str, int]) -> bool:
-        """Delete a record."""
+    async def get(self, key: str) -> Optional[str]:
+        """Get a string value."""
         pass
 
     @abstractmethod
-    async def query(self, model: Any, filters: Dict[str, Any]) -> List[Any]:
-        """Query records with filters."""
+    async def delete(self, key: str) -> bool:
+        """Delete a value."""
+        pass
+
+
+class VectorInterface(ABC):
+    """Interface for vector operations."""
+
+    @abstractmethod
+    async def connect(self) -> None:
+        """Establish connection to vector database."""
         pass
 
     @abstractmethod
-    async def execute_raw(
-        self, query: str, params: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """Execute a raw query."""
+    async def disconnect(self) -> None:
+        """Close the vector database connection."""
         pass
-
-
-class CacheableDatabase(DatabaseClient):
-    """Extension for databases that support caching."""
-
-    @abstractmethod
-    async def cache_set(self, key: str, value: Any, ttl: Optional[int] = None) -> None:
-        """Set a cache value."""
-        pass
-
-    @abstractmethod
-    async def cache_get(self, key: str) -> Optional[Any]:
-        """Get a cached value."""
-        pass
-
-    @abstractmethod
-    async def cache_delete(self, key: str) -> None:
-        """Delete a cached value."""
-        pass
-
-
-class VectorDatabase(DatabaseClient):
-    """Extension for vector database operations."""
 
     @abstractmethod
     async def create_collection(self, name: str, dimension: int) -> None:

@@ -1,65 +1,112 @@
 from enum import Enum
-from typing import Dict, Optional, Type, cast
-from .client import DatabaseClient, CacheableDatabase, VectorDatabase
+from typing import Dict, Optional, cast
+import logging
+from .client import RedisInterface, VectorInterface
+from .clients.redis import RedisClient
+from .clients.lancedb import LanceDBClient
 
 
 class DatabaseType(Enum):
     """Supported database types."""
 
-    MYSQL = "mysql"
     REDIS = "redis"
     LANCEDB = "lancedb"
 
 
 class DatabaseManager:
-    """Manages database connections and client instances."""
+    """Manages database connections for Redis and LanceDB."""
 
     def __init__(self):
-        self._clients: Dict[str, DatabaseClient] = {}
+        self._redis: Optional[RedisInterface] = None
+        self._vector_db: Optional[VectorInterface] = None
         self._config: Dict[str, Dict] = {}
+        self.logger = logging.getLogger("database_manager")
 
-    def register_database(self, name: str, db_type: DatabaseType, config: Dict) -> None:
-        """Register a database configuration."""
-        self._config[name] = {"type": db_type, "config": config}
+    async def setup(self) -> None:
+        """Initialize database connections."""
+        # Get configuration from container
+        from src.containers import config
 
-    async def get_client(self, name: str) -> Optional[DatabaseClient]:
-        """Get or create a database client."""
-        if name not in self._clients:
-            if name not in self._config:
-                raise ValueError(f"Database {name} not registered")
+        # Configure database connections
+        self.configure(
+            redis_config={
+                "host": config.redis.host,
+                "port": config.redis.port,
+                "password": config.redis.password,
+            },
+            vector_config={"uri": "data/vectors"},
+        )
 
-            await self._create_client(name)
-        return self._clients[name]
+        try:
+            # Initialize Redis if configured
+            if "redis" in self._config:
+                self._redis = RedisClient(**self._config["redis"])
+                await self._redis.connect()
 
-    async def _create_client(self, name: str) -> None:
-        """Create a new database client instance."""
-        config = self._config[name]
-        db_type = config["type"]
+            # Initialize vector database if configured
+            if "vector" in self._config:
+                self._vector_db = LanceDBClient(**self._config["vector"])
+                await self._vector_db.connect()
 
-        if db_type == DatabaseType.MYSQL:
-            from .clients.mysql import MySQLClient
+                # Create default collections after successful connection
+                try:
+                    await self._vector_db.create_collection(
+                        "message_embeddings", dimension=1536
+                    )
+                except Exception as e:
+                    self.logger.warning(
+                        f"Failed to create default collection: {str(e)}"
+                    )
 
-            client = MySQLClient(**config["config"])
-        elif db_type == DatabaseType.REDIS:
-            from .clients.redis import RedisClient
+        except Exception as e:
+            await self.close_all()  # Clean up on error
+            raise RuntimeError(f"Failed to initialize database connections: {str(e)}")
 
-            client = RedisClient(**config["config"])
-        elif db_type == DatabaseType.LANCEDB:
-            from .clients.lancedb import LanceDBClient
+    def configure(
+        self, redis_config: Optional[Dict] = None, vector_config: Optional[Dict] = None
+    ) -> None:
+        """Configure database connections.
 
-            client = LanceDBClient(**config["config"])
-        else:
-            raise ValueError(f"Unsupported database type: {db_type}")
+        Args:
+            redis_config: Redis configuration parameters
+            vector_config: Vector database configuration parameters
+        """
+        if redis_config:
+            self._config["redis"] = redis_config
+        if vector_config:
+            self._config["vector"] = vector_config
 
-        await client.connect()
-        # Type assertion to satisfy the type checker
-        self._clients[name] = cast(DatabaseClient, client)
+    async def get_redis(self) -> RedisInterface:
+        """Get Redis client instance."""
+        if not self._redis:
+            if "redis" not in self._config:
+                raise ValueError("Redis not configured")
+
+            self._redis = RedisClient(**self._config["redis"])
+            await self._redis.connect()
+
+        return self._redis
+
+    async def get_vector_db(self) -> VectorInterface:
+        """Get vector database client instance."""
+        if not self._vector_db:
+            if "vector" not in self._config:
+                raise ValueError("Vector database not configured")
+
+            self._vector_db = LanceDBClient(**self._config["vector"])
+            await self._vector_db.connect()
+
+        return self._vector_db
 
     async def close_all(self) -> None:
         """Close all database connections."""
-        for client in self._clients.values():
-            await client.disconnect()
-        self._clients.clear()
+        if self._redis:
+            await self._redis.disconnect()
+            self._redis = None
+
+        if self._vector_db:
+            await self._vector_db.disconnect()
+            self._vector_db = None
 
 
 # Global database manager instance
