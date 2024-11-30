@@ -1,6 +1,6 @@
 .venv/
 .env*
 !.env.vault
-*.pyc
-__pycache__/
-.vscode/
+*.py
+__pycace__/
+.vscode
