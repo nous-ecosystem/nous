@@ -4,6 +4,7 @@ from src.core.config import config
 from src.utils.logging import get_logger
 from src.core.bot import DiscordBot
 from src.core.module_manager import ModuleManager
+from src.database.service import DatabaseService
 
 
 class Container(containers.DeclarativeContainer):
@@ -16,6 +17,9 @@ class Container(containers.DeclarativeContainer):
 
     # Logging provider
     logger = providers.Singleton(get_logger)
+
+    # Database provider
+    database = providers.Singleton(DatabaseService)
 
     # Discord Bot provider
     discord_bot = providers.Singleton(
@@ -34,6 +38,7 @@ def configure_container(container: Container):
         modules=[
             "src.core.bot",
             "src.core.module_manager",
+            "src.database.service",
             "src.injection",
             "main",
         ]

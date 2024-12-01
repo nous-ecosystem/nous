@@ -9,6 +9,10 @@ async def initialize_bot() -> DiscordBot:
     container = Container()
     configure_container(container)
 
+    # Initialize database first
+    database = container.database()
+    await database.initialize()
+
     bot = container.discord_bot()
     module_manager = container.module_manager()
 
