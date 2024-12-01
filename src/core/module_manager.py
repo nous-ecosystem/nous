@@ -4,7 +4,6 @@ import sys
 
 from discord.ext import commands
 from dependency_injector.wiring import inject, Provide
-from dependency_injector.providers import Factory
 
 from src.core.bot import DiscordBot
 
@@ -14,12 +13,7 @@ class ModuleManager:
     Manages dynamic loading of Discord bot modules (cogs) with dependency injection support.
     """
 
-    @inject
-    def __init__(
-        self,
-        bot: commands.Bot = Provide["Container.discord_bot"],
-        logger=Provide["Container.logger"],
-    ):
+    def __init__(self, bot: commands.Bot, logger):
         """
         Initialize ModuleManager with bot and logger dependencies.
 
@@ -34,11 +28,8 @@ class ModuleManager:
     def load_modules(self, base_path: str = "src"):
         """
         Dynamically load modules (cogs) from the specified base path.
-
-        Args:
-            base_path: Base directory to search for modules
         """
-        base_dir = Path(base_path)
+        base_dir = Path(base_path).resolve()  # Get absolute path
 
         # Ensure the base directory is in Python path
         if str(base_dir) not in sys.path:
@@ -52,11 +43,14 @@ class ModuleManager:
             ):
                 continue
 
-            # Convert path to a module import path
-            relative_path = module_path.relative_to(Path.cwd())
-            module_name = str(relative_path).replace("/", ".").replace("\\", ".")[:-3]
-
+            # Convert path to module import path
             try:
+                module_path = module_path.resolve()  # Get absolute path
+                relative_path = module_path.relative_to(Path.cwd().resolve())
+                module_name = (
+                    str(relative_path).replace("/", ".").replace("\\", ".")[:-3]
+                )
+
                 # Import the module
                 module = importlib.import_module(module_name)
 
@@ -90,49 +84,3 @@ class ModuleManager:
             List of loaded module names
         """
         return self.loaded_modules
-
-
-def add_module_manager_to_container(container):
-    """
-    Add ModuleManager as a provider to the dependency injection container.
-
-    Args:
-        container: Dependency injection container
-    """
-    container.module_manager = Factory(
-        ModuleManager, bot=container.discord_bot, logger=container.logger
-    )
-
-
-def configure_container(container):
-    """
-    Configure the dependency injection container.
-    """
-    container.wire(
-        modules=[
-            "src.core.bot",
-            "src.core.module_manager",
-            "src.injection",
-        ]
-    )
-
-    # Add module manager to container
-    add_module_manager_to_container(container)
-
-
-# Update initialize_bot to use string-based providers
-@inject
-def initialize_bot(
-    bot: DiscordBot = Provide["Container.discord_bot"],
-    module_manager_provider: Factory = Provide["Container.module_manager"],
-) -> DiscordBot:
-    """
-    Initialize the bot and load modules.
-    """
-    # Create a concrete module_manager instance
-    module_manager = module_manager_provider()
-
-    # Load modules
-    module_manager.load_modules()
-
-    return bot

@@ -19,30 +19,22 @@ class Container(containers.DeclarativeContainer):
 
     # Discord Bot provider
     discord_bot = providers.Singleton(
-        DiscordBot,
-        token=providers.Dependency(default=lambda: config.DISCORD_TOKEN),
-        logger=logger,
+        DiscordBot, token=lambda: config.DISCORD_TOKEN, logger=logger
     )
 
     # Module Manager provider
-    module_manager = providers.Factory(ModuleManager, bot=discord_bot, logger=logger)
+    module_manager = providers.Singleton(ModuleManager, bot=discord_bot, logger=logger)
 
 
 def configure_container(container: Container):
     """
     Configure the dependency injection container.
     """
-    # Override discord_bot with a concrete instance using the token
-    container.discord_bot.override(
-        providers.Singleton(
-            DiscordBot, token=config.DISCORD_TOKEN, logger=container.logger
-        )
-    )
-
     container.wire(
         modules=[
             "src.core.bot",
             "src.core.module_manager",
             "src.injection",
+            "main",
         ]
     )
