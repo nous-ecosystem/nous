@@ -28,8 +28,8 @@ class GroqClient:
     def generate_response(
         self,
         messages: List[Dict[str, str]],
-        max_tokens: int = 1000,
-        temperature: float = 0.7,
+        max_tokens: int = 8000,
+        temperature: float = 0.85,
     ) -> str:
         """Generate a response using the Groq API."""
         try:
@@ -39,12 +39,25 @@ class GroqClient:
                 max_tokens=max_tokens,
                 temperature=temperature,
                 stream=False,
+                top_p=0.9,
+                presence_penalty=0.6,
+                frequency_penalty=0.7,
             )
 
-            # Ensure we always return a string
+            # More detailed response validation
+            if not response or not response.choices:
+                print("Error: Empty response from Groq API")
+                return "I'm having trouble connecting to my language model. Please try again."
+
             content = response.choices[0].message.content
-            return content if content else "I couldn't generate a meaningful response."
+            if not content or not content.strip():
+                print("Error: Empty content in response")
+                return (
+                    "I apologize, but I received an empty response. Please try again."
+                )
+
+            return content
 
         except Exception as e:
-            print(f"Error generating response: {e}")
-            return "I apologize, but I'm having trouble generating a response right now. Please try again later."
+            print(f"Detailed error in generate_response: {type(e).__name__}: {str(e)}")
+            return "I'm having technical difficulties right now. Please try again in a moment."

@@ -15,7 +15,7 @@ class Message:
 class MessageHistory:
     def __init__(
         self,
-        expiry_time: timedelta = timedelta(hours=1),
+        expiry_time: timedelta = timedelta(hours=3),
         prompt_manager: Optional[PromptManager] = None,
     ):
         self.expiry_time = expiry_time
@@ -35,10 +35,10 @@ class MessageHistory:
     ) -> None:
         """Add a message to the history for a specific channel."""
         if channel_id not in self.conversations:
-            self.conversations[channel_id] = deque()
+            self.conversations[channel_id] = deque(maxlen=20)
 
-        # Reset history if total tokens exceed 3500
-        if total_tokens > 3500:
+        # Reset history if total tokens exceed 6000
+        if total_tokens > 6000:
             self.conversations[channel_id].clear()
 
         self.conversations[channel_id].append(
@@ -46,20 +46,28 @@ class MessageHistory:
         )
         self._cleanup_expired(channel_id)
 
-    def get_conversation_history(self, channel_id: int) -> list[dict]:
+    def get_conversation_history(
+        self,
+        channel_id: int,
+        capabilities: Optional[list[str]] = None,
+        special_instructions: Optional[str] = None,
+    ) -> list[dict]:
         """Get the conversation history for a channel in Groq-compatible format."""
         self._cleanup_expired(channel_id)
 
         # Get the system prompt from the prompt manager
         system_prompt = self.prompt_manager.get_system_prompt(
             bot_name="Nous",
-            capabilities=[
-                "Understanding and engaging with internet culture and memes",
-                "Providing witty and contextual responses",
-                "Maintaining positive vibes while handling edgy content",
-                "Offering helpful information in a casual, friendly way",
+            capabilities=capabilities
+            or [
+                "Deep knowledge of Discord culture and memes",
+                "Always aware of ongoing conversations",
+                "Dry humor with occasional self-awareness about being too online",
+                "Actually helpful despite the sleep deprivation",
+                "Perpetually available for chat",
             ],
-            special_instructions="Read the room and match the conversation's energy while staying cool and collected.",
+            special_instructions=special_instructions
+            or "Be the reliable friend who's always online but keep it chill.",
         )
 
         history = [{"role": "system", "content": system_prompt}]
