@@ -8,6 +8,8 @@ from src.core.module_manager import ModuleManager
 from src.database.service import DatabaseService
 from src.chat.handler import ChatHandler
 from src.chat.groq_client import GroqClient
+from src.chat.prompt_manager import PromptManager
+from src.chat.message_history import MessageHistory
 
 
 class Services(containers.DeclarativeContainer):
@@ -19,6 +21,8 @@ class Services(containers.DeclarativeContainer):
     database = providers.Singleton(DatabaseService)
 
     groq_client = providers.Singleton(GroqClient, api_key=config.provided.GROQ_API_KEY)
+
+    prompt_manager = providers.Singleton(PromptManager)
 
 
 class BotComponents(containers.DeclarativeContainer):
@@ -34,10 +38,15 @@ class BotComponents(containers.DeclarativeContainer):
         ModuleManager, bot=discord_bot, logger=services.logger
     )
 
+    message_history = providers.Singleton(
+        MessageHistory, prompt_manager=services.prompt_manager
+    )
+
     chat_handler = providers.Singleton(
         ChatHandler,
         client=discord_bot,
         groq_api_key=services.config.provided.GROQ_API_KEY,
+        message_history=message_history,
     )
 
 

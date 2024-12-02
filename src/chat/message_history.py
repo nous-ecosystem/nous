@@ -2,6 +2,7 @@ from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Dict, Optional
+from .prompt_manager import PromptManager
 
 
 @dataclass
@@ -13,11 +14,15 @@ class Message:
 
 class MessageHistory:
     def __init__(
-        self, max_messages: int = 25, expiry_time: timedelta = timedelta(hours=1)
+        self,
+        max_messages: int = 25,
+        expiry_time: timedelta = timedelta(hours=1),
+        prompt_manager: Optional[PromptManager] = None,
     ):
         self.max_messages = max_messages
         self.expiry_time = expiry_time
         self.conversations: Dict[int, deque[Message]] = {}  # channel_id -> messages
+        self.prompt_manager = prompt_manager or PromptManager()
 
     def add_message(self, channel_id: int, content: str, role: str = "user") -> None:
         """Add a message to the history for a specific channel."""
@@ -33,13 +38,19 @@ class MessageHistory:
         """Get the conversation history for a channel in Groq-compatible format."""
         self._cleanup_expired(channel_id)
 
-        # Start with a system message
-        history = [
-            {
-                "role": "system",
-                "content": "You are a helpful AI assistant in a Discord chat. Provide clear, concise, and friendly responses.",
-            }
-        ]
+        # Get the system prompt from the prompt manager
+        system_prompt = self.prompt_manager.get_system_prompt(
+            bot_name="Nous",
+            capabilities=[
+                "Understanding and engaging with internet culture and memes",
+                "Providing witty and contextual responses",
+                "Maintaining positive vibes while handling edgy content",
+                "Offering helpful information in a casual, friendly way",
+            ],
+            special_instructions="Read the room and match the conversation's energy while staying cool and collected.",
+        )
+
+        history = [{"role": "system", "content": system_prompt}]
 
         if channel_id in self.conversations:
             history.extend(

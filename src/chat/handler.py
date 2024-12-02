@@ -6,9 +6,14 @@ from .groq_client import GroqClient
 
 
 class ChatHandler:
-    def __init__(self, client: Client, groq_api_key: Optional[str] = None):
+    def __init__(
+        self,
+        client: Client,
+        groq_api_key: Optional[str] = None,
+        message_history: Optional[MessageHistory] = None,
+    ):
         self.client = client
-        self.message_history = MessageHistory()
+        self.message_history = message_history or MessageHistory()
         self.groq_client = GroqClient(groq_api_key)
 
         # Register the message handler
