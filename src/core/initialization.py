@@ -1,4 +1,4 @@
-from src.injection import Container, configure_container
+from src.injection import Application
 from src.core.bot import DiscordBot
 
 
@@ -6,21 +6,21 @@ async def initialize_bot() -> DiscordBot:
     """
     Initialize the bot and load modules.
     """
-    container = Container()
-    configure_container(container)
+    app = Application.create()
 
-    # Initialize database first
-    database = container.database()
+    # Initialize database
+    database = app.services.database()
     await database.initialize()
 
-    bot = container.discord_bot()
-    module_manager = container.module_manager()
+    # Get bot instance
+    bot = app.bot.discord_bot()
 
-    # Initialize chat handler (this will wire up the event listeners)
-    chat_handler = container.chat_handler()
+    # Initialize chat handler
+    chat_handler = app.bot.chat_handler()
     bot.logger.info(f"Chat handler initialized: {chat_handler}")
 
-    # Load modules
+    # Initialize and load modules
+    module_manager = app.bot.module_manager()
     module_manager.load_modules()
 
     return bot

@@ -1,4 +1,5 @@
 from dependency_injector import containers, providers
+from typing import Dict, Any
 
 from src.core.config import config
 from src.utils.logging import get_logger
@@ -9,38 +10,52 @@ from src.chat.handler import ChatHandler
 from src.chat.groq_client import GroqClient
 
 
-class Container(containers.DeclarativeContainer):
-    """
-    Centralized dependency injection container for the Discord bot.
-    """
+class Services(containers.DeclarativeContainer):
+    """Container for core services"""
 
-    # Configuration provider (singleton)
-    config = providers.Singleton(lambda: config)
-
-    # Logging provider
+    config = providers.Singleton(lambda: config)  # Your existing config instance
     logger = providers.Singleton(get_logger)
 
-    # Database provider
     database = providers.Singleton(DatabaseService)
 
-    # Discord Bot provider
-    discord_bot = providers.Singleton(
-        DiscordBot, token=lambda: config.DISCORD_TOKEN, logger=logger
-    )
-
-    # Module Manager provider
-    module_manager = providers.Singleton(ModuleManager, bot=discord_bot, logger=logger)
-
-    # Chat Handler provider
-    chat_handler = providers.Singleton(
-        ChatHandler, client=discord_bot, groq_api_key=config.provided.GROQ_API_KEY
-    )
-
-    # Groq Client provider
     groq_client = providers.Singleton(GroqClient, api_key=config.provided.GROQ_API_KEY)
 
 
-def configure_container(container: Container):
+class BotComponents(containers.DeclarativeContainer):
+    """Container for bot-specific components"""
+
+    services = providers.DependenciesContainer()
+
+    discord_bot = providers.Singleton(
+        DiscordBot, token=services.config.provided.DISCORD_TOKEN, logger=services.logger
+    )
+
+    module_manager = providers.Singleton(
+        ModuleManager, bot=discord_bot, logger=services.logger
+    )
+
+    chat_handler = providers.Singleton(
+        ChatHandler,
+        client=discord_bot,
+        groq_api_key=services.config.provided.GROQ_API_KEY,
+    )
+
+
+class Application(containers.DeclarativeContainer):
+    """Main application container"""
+
+    services = providers.Container(Services)
+    bot = providers.Container(BotComponents, services=services)
+
+    # Helper method to initialize the application
+    @classmethod
+    def create(cls) -> "Application":
+        container = cls()
+        container.init_resources()
+        return container
+
+
+def configure_container(container: Application):
     """
     Configure the dependency injection container.
     """
