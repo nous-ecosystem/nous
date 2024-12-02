@@ -6,7 +6,7 @@ authors = ["anthoeknee <pacyheb@protonmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.10"
 discord-py = "^2.4.0"
 rich = "^13.9.4"
 redis = "^5.2.0"
@@ -17,9 +17,6 @@ dependency-injector = "^4.43.0"
 supabase = "^2.10.0"
 sentry-sdk = "^2.19.0"
 python-dotenv = "^1.0.1"
-onnx = "^1.17.0"
-onnxruntime-gpu = "^1.20.1"
-sentence-transformers = "^3.3.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"

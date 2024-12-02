@@ -59,9 +59,13 @@ class ChatHandler:
     async def _handle_chat(self, message: Message):
         """Process the message and generate an AI response."""
         try:
-            # Add user's message to history first
+            # Add user's message to history with user info
             self.message_history.add_message(
-                channel_id=message.channel.id, content=message.content, role="user"
+                channel_id=message.channel.id,
+                content=message.content,
+                role="user",
+                user_id=str(message.author.id),
+                username=message.author.name,
             )
 
             # Get conversation history
@@ -77,6 +81,20 @@ class ChatHandler:
                 special_instructions="Stay based and authentic while maintaining your own frame. Don't get baited into controversial topics.",
             )
 
+            # Get relevant memories
+            relevant_memories = self.message_history.get_relevant_memories(
+                channel_id=message.channel.id,
+                query=message.content,
+                user_id=str(message.author.id),
+            )
+
+            # Add memory context to conversation if available
+            if relevant_memories:
+                memory_context = "Relevant past conversations:\n" + "\n".join(
+                    [f"- {m['summary']}" for m in relevant_memories]
+                )
+                conversation.insert(1, {"role": "system", "content": memory_context})
+
             # Generate response
             async with message.channel.typing():
                 response = await self.client.loop.run_in_executor(
@@ -90,6 +108,8 @@ class ChatHandler:
                         content=response,
                         role="assistant",
                         total_tokens=total_tokens,
+                        user_id=str(message.author.id),
+                        username=message.author.name,
                     )
 
                     await message.reply(response)

@@ -1,8 +1,9 @@
 from collections import deque
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from .prompt_manager import PromptManager
+from .memory_store import MemoryStore
 
 
 @dataclass
@@ -17,10 +18,14 @@ class MessageHistory:
         self,
         expiry_time: timedelta = timedelta(hours=3),
         prompt_manager: Optional[PromptManager] = None,
+        memory_store: Optional[MemoryStore] = None,
+        max_tokens: int = 6000,
     ):
         self.expiry_time = expiry_time
         self.conversations: Dict[int, deque[Message]] = {}  # channel_id -> messages
         self.prompt_manager = prompt_manager or PromptManager()
+        self.memory_store = memory_store or MemoryStore()
+        self.max_tokens = max_tokens
 
     def _estimate_token_count(self, message: str) -> int:
         """Estimate the number of tokens in a message."""
@@ -32,18 +37,36 @@ class MessageHistory:
         content: str,
         role: str = "user",
         total_tokens: Optional[int] = 0,
+        user_id: Optional[str] = None,
+        username: Optional[str] = None,
     ) -> None:
-        """Add a message to the history for a specific channel."""
+        """Add a message to the history and potentially trigger memory storage"""
         if channel_id not in self.conversations:
             self.conversations[channel_id] = deque(maxlen=20)
 
-        # Reset history if total tokens exceed 6000
-        if total_tokens > 6000:
-            self.conversations[channel_id].clear()
-
+        # Store the message in short-term memory
         self.conversations[channel_id].append(
             Message(content=content, role=role, timestamp=datetime.now())
         )
+
+        # Check if we need to condense and store long-term memory
+        if total_tokens > self.max_tokens and role == "assistant":
+            # Get the full conversation
+            conversation = "\n".join(
+                [f"{msg.role}: {msg.content}" for msg in self.conversations[channel_id]]
+            )
+
+            # Store in long-term memory
+            self.memory_store.store_memory(
+                content=conversation,
+                user_id=user_id or "unknown",
+                username=username or "unknown",
+                channel_id=channel_id,
+            )
+
+            # Clear the conversation history
+            self.conversations[channel_id].clear()
+
         self._cleanup_expired(channel_id)
 
     def get_conversation_history(
@@ -99,3 +122,11 @@ class MessageHistory:
         """Clear the conversation history for a specific channel."""
         if channel_id in self.conversations:
             self.conversations[channel_id].clear()
+
+    def get_relevant_memories(
+        self, channel_id: int, query: str, user_id: Optional[str] = None, limit: int = 3
+    ) -> List[Dict]:
+        """Retrieve relevant memories for the current conversation"""
+        return self.memory_store.search_memories(
+            query=query, limit=limit, user_id=user_id, channel_id=channel_id
+        )
