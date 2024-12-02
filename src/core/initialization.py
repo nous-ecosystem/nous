@@ -16,5 +16,11 @@ async def initialize_bot() -> DiscordBot:
     bot = container.discord_bot()
     module_manager = container.module_manager()
 
+    # Initialize chat handler (this will wire up the event listeners)
+    chat_handler = container.chat_handler()
+    bot.logger.info(f"Chat handler initialized: {chat_handler}")
+
+    # Load modules
     module_manager.load_modules()
+
     return bot

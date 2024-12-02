@@ -42,6 +42,9 @@ class Config:
     def __init__(self):
         # Log configuration loading
         self._logger.info("Configuration loaded successfully")
+        self._logger.info(
+            f"GROQ_API_KEY Loaded: {'Yes' if self.GROQ_API_KEY else 'No'}"
+        )
 
         # Validate critical configurations
         self._validate_critical_configs()
