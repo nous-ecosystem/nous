@@ -16,10 +16,10 @@ class Message:
 class MessageHistory:
     def __init__(
         self,
-        expiry_time: timedelta = timedelta(hours=3),
+        expiry_time: timedelta = timedelta(minutes=45),
         prompt_manager: Optional[PromptManager] = None,
         memory_store: Optional[MemoryStore] = None,
-        max_tokens: int = 6000,
+        max_tokens: int = 3000,
     ):
         self.expiry_time = expiry_time
         self.conversations: Dict[int, deque[Message]] = {}  # channel_id -> messages
@@ -49,23 +49,20 @@ class MessageHistory:
             Message(content=content, role=role, timestamp=datetime.now())
         )
 
-        # Check if we need to condense and store long-term memory
+        # Check if we need to store long-term memory
         if total_tokens > self.max_tokens and role == "assistant":
             # Get the full conversation
             conversation = "\n".join(
                 [f"{msg.role}: {msg.content}" for msg in self.conversations[channel_id]]
             )
 
-            # Store in long-term memory
+            # Store in long-term memory without clearing short-term
             self.memory_store.store_memory(
                 content=conversation,
                 user_id=user_id or "unknown",
                 username=username or "unknown",
                 channel_id=channel_id,
             )
-
-            # Clear the conversation history
-            self.conversations[channel_id].clear()
 
         self._cleanup_expired(channel_id)
 
@@ -106,17 +103,35 @@ class MessageHistory:
         return history
 
     def _cleanup_expired(self, channel_id: int) -> None:
-        """Remove expired messages from the conversation."""
+        """Remove expired messages and store them if needed."""
         if channel_id not in self.conversations:
             return
 
         current_time = datetime.now()
+        expired_messages = []
+
+        # Collect expired messages
         while (
             self.conversations[channel_id]
             and current_time - self.conversations[channel_id][0].timestamp
             > self.expiry_time
         ):
-            self.conversations[channel_id].popleft()
+            expired_messages.append(self.conversations[channel_id].popleft())
+
+        # If we have expired messages, store them
+        if expired_messages:
+            # Convert expired messages to conversation format
+            conversation = "\n".join(
+                [f"{msg.role}: {msg.content}" for msg in expired_messages]
+            )
+
+            # Store in long-term memory
+            self.memory_store.store_memory(
+                content=conversation,
+                user_id="system_expired",  # Mark as system expired
+                username="system",
+                channel_id=channel_id,
+            )
 
     def clear_channel_history(self, channel_id: int) -> None:
         """Clear the conversation history for a specific channel."""
