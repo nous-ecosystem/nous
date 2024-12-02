@@ -17,6 +17,12 @@ dependency-injector = "^4.43.0"
 supabase = "^2.10.0"
 sentry-sdk = "^2.19.0"
 python-dotenv = "^1.0.1"
+lancedb = "0.16.0"
+sqlalchemy = "^2.0.36"
+aiosqlite = "^0.20.0"
+jinja2 = "^3.1.4"
+openai = "^1.55.3"
+groq = "^0.13.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.3.1"
