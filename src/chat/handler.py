@@ -65,18 +65,37 @@ class ChatHandler:
 
         # Generate response
         async with message.channel.typing():
-            # Run the synchronous Groq call in an executor to prevent blocking
-            response = await self.client.loop.run_in_executor(
-                None, self.groq_client.generate_response, conversation
-            )
+            try:
+                # Run the synchronous Groq call in an executor to prevent blocking
+                response = await self.client.loop.run_in_executor(
+                    None, self.groq_client.generate_response, conversation
+                )
 
-        # Add bot's response to history
-        self.message_history.add_message(
-            channel_id=message.channel.id, content=response, role="assistant"
-        )
+                # Check if response is a string (updated to handle string responses)
+                if isinstance(response, str):
+                    total_tokens = self._estimate_token_count(response)
+                    self.message_history.add_message(
+                        channel_id=message.channel.id,
+                        content=response,
+                        role="assistant",
+                        total_tokens=total_tokens,
+                    )
 
-        # Send the response
-        await message.reply(response)
+                    # Send the response
+                    await message.reply(response)
+                else:
+                    print("Unexpected response type:", type(response))
+                    await message.reply("I'm having trouble generating a response.")
+
+            except Exception as e:
+                print(f"Error in _handle_chat: {e}")
+                await message.reply(
+                    "I apologize, but I encountered an error while processing your message."
+                )
+
+    def _estimate_token_count(self, message: str) -> int:
+        """Estimate the number of tokens in a message."""
+        return len(message) // 4 + 1
 
     def clear_channel_history(self, channel_id: int) -> None:
         """Clear the conversation history for a specific channel."""

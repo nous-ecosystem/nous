@@ -15,19 +15,31 @@ class Message:
 class MessageHistory:
     def __init__(
         self,
-        max_messages: int = 25,
         expiry_time: timedelta = timedelta(hours=1),
         prompt_manager: Optional[PromptManager] = None,
     ):
-        self.max_messages = max_messages
         self.expiry_time = expiry_time
         self.conversations: Dict[int, deque[Message]] = {}  # channel_id -> messages
         self.prompt_manager = prompt_manager or PromptManager()
 
-    def add_message(self, channel_id: int, content: str, role: str = "user") -> None:
+    def _estimate_token_count(self, message: str) -> int:
+        """Estimate the number of tokens in a message."""
+        return len(message) // 4 + 1
+
+    def add_message(
+        self,
+        channel_id: int,
+        content: str,
+        role: str = "user",
+        total_tokens: Optional[int] = 0,
+    ) -> None:
         """Add a message to the history for a specific channel."""
         if channel_id not in self.conversations:
-            self.conversations[channel_id] = deque(maxlen=self.max_messages)
+            self.conversations[channel_id] = deque()
+
+        # Reset history if total tokens exceed 3500
+        if total_tokens > 3500:
+            self.conversations[channel_id].clear()
 
         self.conversations[channel_id].append(
             Message(content=content, role=role, timestamp=datetime.now())

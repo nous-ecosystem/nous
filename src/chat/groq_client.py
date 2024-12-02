@@ -40,7 +40,11 @@ class GroqClient:
                 temperature=temperature,
                 stream=False,
             )
-            return response.choices[0].message.content
+
+            # Ensure we always return a string
+            content = response.choices[0].message.content
+            return content if content else "I couldn't generate a meaningful response."
+
         except Exception as e:
             print(f"Error generating response: {e}")
             return "I apologize, but I'm having trouble generating a response right now. Please try again later."
