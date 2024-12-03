@@ -1,48 +1,60 @@
-from typing import Union, Optional, List, Dict, Any
-from .base import BaseLLMProvider
+from groq import AsyncGroq
+import base64
+import os
+from src.config import Config  # Import the Config class
 
 
-class GroqProvider(BaseLLMProvider):
-    """Factory class for interacting with Groq's API."""
+class GroqProvider:
+    def __init__(self):
+        config = Config()  # Create an instance of Config
+        self.client = AsyncGroq(api_key=config.GROQ_API_KEY)
 
-    def __init__(
+    async def chat_completion(
         self,
-        api_key: str,
-        default_model: str = "llama-3.1-70b-versatile",
-        tool_model: str = "llama3-groq-70b-8192-tool-use-preview",
-        base_url: str = "https://api.groq.com/v1",
+        messages,
+        model="llama3-8b-8192",
+        temperature=0.5,
+        max_tokens=1024,
+        top_p=1,
     ):
-        """Initialize the Groq client."""
-        super().__init__(api_key, base_url, default_model)
-        self.vision_model = "llama-3.2-90b-vision-preview"
-        self.tool_model = tool_model
+        chat_completion = await self.client.chat.completions.create(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            stop=None,
+            stream=False,
+        )
+        return chat_completion.choices[0].message.content
 
-    async def analyze_image(
-        self,
-        image: Union[str, bytes],
-        prompt: str = "What's in this image?",
-        model: Optional[str] = None,
-    ) -> str:
-        """Analyze an image from a URL or a local file."""
-        base64_image = self._encode_image(image)
+    def encode_image(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    def image_chat_completion(self, image_path, user_message):
+        base64_image = self.encode_image(image_path)
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
-                    {"type": "image_url", "image_url": {"url": base64_image}},
+                    {"type": "text", "text": user_message},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}",
+                        },
+                    },
                 ],
             }
         ]
-        return await self.chat(messages, model or self.vision_model)
-
-    async def use_tools(
-        self,
-        messages: List[Dict[str, Any]],
-        tools: List[Dict[str, Any]],
-        available_functions: Dict[str, callable],
-    ) -> str:
-        """Convenience method for tool use with default tool model."""
-        return await self.chat_with_tools(
-            messages, tools, available_functions, model=self.tool_model
+        return self.client.chat.completions.create(
+            messages=messages, model="llama-3.2-11b-vision-preview"
         )
+
+    async def moderate_content(self, user_message):
+        response = await self.client.chat.completions.create(
+            messages=[{"role": "user", "content": user_message}],
+            model="llama-guard-3-8b",
+        )
+        return response.choices[0].message.content

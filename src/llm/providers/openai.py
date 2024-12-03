@@ -1,49 +1,49 @@
-from typing import Optional, Union, List, Dict, Any
-from .base import BaseLLMProvider
+from openai import OpenAI
+import base64
+from src.config import Config
 
 
-class OpenAIProvider(BaseLLMProvider):
-    def __init__(
-        self,
-        api_key: str,
-        organization: Optional[str] = None,
-        default_model: str = "gpt-4",
-        tool_model: str = "gpt-4-turbo-preview",
-        base_url: str = "https://api.openai.com/v1",
-    ):
-        super().__init__(api_key, base_url, default_model)
-        if organization:
-            self.headers["OpenAI-Organization"] = organization
-        self.tool_model = tool_model
+class OpenAIProvider:
+    def __init__(self):
+        config = Config()
+        self.client = OpenAI(api_key=config.OPENAI_API_KEY)
 
-    async def analyze_image(
-        self,
-        image: Union[str, bytes],
-        prompt: str = "What's in this image?",
-        model: Optional[str] = None,
-    ) -> str:
-        base64_image = self._encode_image(image)
+    def chat_completion(self, messages, model="gpt-4o-mini", max_tokens=300):
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            max_tokens=max_tokens,
+        )
+        return response.choices[0]
+
+    def encode_image(self, image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode("utf-8")
+
+    def image_chat_completion(self, image_path, user_message):
+        base64_image = self.encode_image(image_path)
         messages = [
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": prompt},
+                    {"type": "text", "text": user_message},
                     {
                         "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"},
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{base64_image}",
+                        },
                     },
                 ],
             }
         ]
-        return await self.chat(messages, model)
+        return self.client.chat.completions.create(messages=messages)
 
-    async def use_tools(
-        self,
-        messages: List[Dict[str, Any]],
-        tools: List[Dict[str, Any]],
-        available_functions: Dict[str, callable],
-    ) -> str:
-        """Convenience method for tool use with default tool model."""
-        return await self.chat_with_tools(
-            messages, tools, available_functions, model=self.tool_model
+    def create_embedding(self, input_text, model="text-embedding-3-small"):
+        response = self.client.embeddings.create(input=input_text, model=model)
+        return response.data[0].embedding
+
+    def moderate_content(self, content):
+        response = self.client.moderations.create(
+            model="omni-moderation-latest", input=content
         )
+        return response

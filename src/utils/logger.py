@@ -1,73 +1,47 @@
+# src/utils/logger.py
+
 import logging
-import functools
-import threading
+import sys
 
 
-class ColorFormatter:
-    # ANSI color codes
-    COLORS = {
-        "DEBUG": "\033[94m",  # Blue
-        "INFO": "\033[92m",  # Green
-        "WARNING": "\033[93m",  # Yellow
-        "ERROR": "\033[91m",  # Red
-        "CRITICAL": "\033[95m",  # Magenta
-    }
-    RESET = "\033[0m"
-
-    @classmethod
-    def colorize(cls, level, message):
-        color = cls.COLORS.get(level.upper(), "")
-        return f"{color}{message}{cls.RESET}"
-
-
-class Logger:
+class SingletonLogger:
     _instance = None
-    _lock = threading.Lock()
 
-    def __init__(self):
-        self._logger = logging.getLogger("DiscordAIBot")
-        self._logger.setLevel(logging.INFO)
+    class ColoredFormatter(logging.Formatter):
+        COLORS = {
+            "DEBUG": "\033[94m",  # Blue
+            "INFO": "\033[92m",  # Green
+            "WARNING": "\033[93m",  # Yellow
+            "ERROR": "\033[91m",  # Red
+            "CRITICAL": "\033[95m",  # Magenta
+        }
+        RESET = "\033[0m"
 
-        # Create console handler
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
+        def format(self, record):
+            log_color = self.COLORS.get(record.levelname, self.RESET)
+            record.msg = f"{log_color}{record.msg}{self.RESET}"
+            return super().format(record)
 
-        # Custom log formatting with color
-        class ColoredFormatter(logging.Formatter):
-            def format(self, record):
-                original_format = "%(asctime)s - %(levelname)s - %(message)s"
-                formatter = logging.Formatter(
-                    original_format, datefmt="%Y-%m-%d %H:%M:%S"
-                )
-                formatted_message = formatter.format(record)
-                return ColorFormatter.colorize(record.levelname, formatted_message)
-
-        console_handler.setFormatter(ColoredFormatter())
-        self._logger.addHandler(console_handler)
-
-    @classmethod
-    def get_instance(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = cls()
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(SingletonLogger, cls).__new__(cls)
+            cls._instance._initialize_logger()
         return cls._instance
 
-    @functools.lru_cache(maxsize=128)
-    def info(self, message):
-        self._logger.info(message)
+    def _initialize_logger(self):
+        self.logger = logging.getLogger("AIChatbotLogger")
+        self.logger.setLevel(logging.DEBUG)
 
-    @functools.lru_cache(maxsize=128)
-    def error(self, message):
-        self._logger.error(message)
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(
+            self.ColoredFormatter("%(asctime)s - %(levelname)s - %(message)s")
+        )
+        self.logger.addHandler(handler)
 
-    @functools.lru_cache(maxsize=128)
-    def warning(self, message):
-        self._logger.warning(message)
-
-    @functools.lru_cache(maxsize=128)
-    def debug(self, message):
-        self._logger.debug(message)
+    def get_logger(self):
+        return self.logger
 
 
-# Create a singleton instance
-logger = Logger.get_instance()
+# Usage
+logger = SingletonLogger().get_logger()
+logger.info("Logger initialized successfully.")

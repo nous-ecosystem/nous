@@ -5,8 +5,8 @@ import os
 # Ensure the src directory is in the Python path
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
-from src.bot.core import create_bot
-from src.bot.config import config
+from src.bot import create_bot
+from src.config import Config
 from src.utils.logger import logger
 
 
@@ -18,7 +18,10 @@ async def main():
         # Create bot instance
         bot = create_bot()
 
-        # Run the bot
+        # Get configuration
+        config = Config()
+
+        # Start the bot
         await bot.start(config.DISCORD_TOKEN)
 
     except Exception as e:
