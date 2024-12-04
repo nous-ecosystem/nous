@@ -6,6 +6,7 @@ from src.llm.events import setup_llm_events
 from src.database.manager import DatabaseManager
 from src.module_manager import ModuleManager
 from src.utils.permissions import permission_manager
+from src.utils.command_sync import CommandSyncer
 
 
 class Bot(commands.Bot):
@@ -31,6 +32,7 @@ class Bot(commands.Bot):
         self.db = DatabaseManager()
         self.module_manager = ModuleManager(self)
         self.permission_manager = permission_manager
+        self.command_syncer = CommandSyncer(self)
 
     async def setup_hook(self):
         """Initialize bot components before starting"""
@@ -49,6 +51,9 @@ class Bot(commands.Bot):
                 f"Loaded {len(loaded_modules)} modules: {', '.join(loaded_modules)}"
             )
 
+            # Initial command sync will happen in on_ready
+            logger.info("Command sync scheduled for when bot is ready")
+
         except Exception as e:
             logger.error(f"Error during bot setup: {str(e)}")
             raise
@@ -56,6 +61,14 @@ class Bot(commands.Bot):
     async def on_ready(self):
         """Log when the bot is ready and connected"""
         logger.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
+
+        # Sync commands after bot is fully ready
+        try:
+            await self.command_syncer.sync_all_guilds()
+            logger.info("Command sync completed")
+        except Exception as e:
+            logger.error(f"Failed to sync commands: {str(e)}")
+
         logger.info("------")
 
 

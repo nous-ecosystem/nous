@@ -3,16 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 from src.database.models.permission import PermissionType
 from src.utils.permissions import permission_manager
-from src.utils.logger import logger
 from typing import Optional, Union
-from discord import (
-    TextChannel,
-    VoiceChannel,
-    CategoryChannel,
-    ForumChannel,
-)
 from discord.abc import GuildChannel
 from discord import Member, Role
+from src.config import Config
 
 # Define the valid channel types for slash commands
 VALID_CHANNEL_TYPES = [
@@ -23,81 +17,81 @@ VALID_CHANNEL_TYPES = [
     discord.ChannelType.forum,
 ]
 
+# Define target type union
+TargetType = Union[Member, Role]
+ChannelType = GuildChannel
+
 
 class PermissionsCog(commands.Cog, name="Permissions"):
     def __init__(self, bot):
         self.bot = bot
+        self.config = Config()
 
-    def cog_check(self, interaction: discord.Interaction) -> bool:
-        """Only allow guild-based commands and bot owners"""
-        return interaction.guild is not None and self.bot.is_owner(interaction.user)
+    async def is_owner(self, interaction: discord.Interaction) -> bool:
+        """Check if the user is the bot owner"""
+        return str(interaction.user.id) == self.config.DISCORD_OWNER_ID
 
-    perms_group = app_commands.Group(
-        name="perms", description="Manage bot permissions", guild_only=True
+    perm = app_commands.Group(
+        name="perm",
+        description="Manage bot permissions",
+        guild_only=True,
+        default_permissions=discord.Permissions(administrator=True),
     )
 
-    @perms_group.command(name="set")
+    async def permission_autocomplete(
+        self,
+        interaction: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        permissions = [
+            "can_use_bot",
+            "can_manage_permissions",
+            "can_use_admin_commands",
+            "max_requests_per_day",
+        ]
+        return [
+            app_commands.Choice(name=perm, value=perm)
+            for perm in permissions
+            if current.lower() in perm.lower()
+        ][:25]
+
+    @perm.command(name="set")
     @app_commands.describe(
-        target_type="Type of target (user/role/channel)",
-        target_user="The user to set permissions for",
-        target_role="The role to set permissions for",
-        target_channel="The channel to set permissions for",
+        target="The user or role to set permissions for",
         permission="The permission to set",
         value="The permission value (true/false)",
     )
-    async def set_permission(
+    @app_commands.autocomplete(permission=permission_autocomplete)
+    async def set(
         self,
         interaction: discord.Interaction,
-        target_type: str,
+        target: TargetType,
         permission: str,
         value: bool,
-        target_user: Optional[Member] = None,
-        target_role: Optional[Role] = None,
-        target_channel: Optional[GuildChannel] = None,
     ):
         """Set a permission for a target"""
-        await interaction.response.defer()
-
-        if not await self.bot.is_owner(interaction.user):
-            await interaction.followup.send("❌ Only bot owners can use this command")
-            return
-
-        if target_type not in ["user", "role", "channel"]:
-            await interaction.followup.send(
-                "❌ Invalid target type. Use: user, role, or channel"
+        if not await self.is_owner(interaction):
+            await interaction.response.send_message(
+                "❌ Only bot owners can use this command", ephemeral=True
             )
             return
 
-        target = target_user or target_role or target_channel
-        if not target:
-            await interaction.followup.send("❌ No target specified")
-            return
-
-        success = await permission_manager.set_permission(
-            interaction.guild_id, target_type, target.id, **{permission: value}
+        target_type = self._get_target_type(target)
+        await permission_manager.set_permission(
+            interaction.guild_id, target_type, target.id, permission, value
+        )
+        await interaction.response.send_message(
+            f"✅ Set {permission} to {value} for {target_type} {target.name}"
         )
 
-        if success:
-            await interaction.followup.send(
-                f"✅ Set `{permission}` to `{value}` for {target_type} {target.name}"
-            )
-        else:
-            await interaction.followup.send("❌ Failed to set permission")
-
-    @perms_group.command(name="view")
+    @perm.command(name="view")
     @app_commands.describe(
-        target_type="Type of target (user/role/channel)",
-        target_user="The user to view permissions for",
-        target_role="The role to view permissions for",
-        target_channel="The channel to view permissions for",
+        target="The user or role to view permissions for",
     )
-    async def view_permissions(
+    async def view(
         self,
         interaction: discord.Interaction,
-        target_type: str,
-        target_user: Optional[Member] = None,
-        target_role: Optional[Role] = None,
-        target_channel: Optional[GuildChannel] = None,
+        target: TargetType,
     ):
         """View permissions for a target"""
         await interaction.response.defer()
@@ -106,11 +100,7 @@ class PermissionsCog(commands.Cog, name="Permissions"):
             await interaction.followup.send("❌ Only bot owners can use this command")
             return
 
-        target = target_user or target_role or target_channel
-        if not target:
-            await interaction.followup.send("❌ No target specified")
-            return
-
+        target_type = self._get_target_type(target)
         perms = await permission_manager.repo.get_permissions(
             target_type, target.id, interaction.guild_id
         )
@@ -145,33 +135,23 @@ class PermissionsCog(commands.Cog, name="Permissions"):
 
         await interaction.followup.send(embed=embed)
 
-    @perms_group.command(name="reset")
+    @perm.command(name="reset")
     @app_commands.describe(
-        target_type="Type of target (user/role/channel)",
-        target_user="The user to reset permissions for",
-        target_role="The role to reset permissions for",
-        target_channel="The channel to reset permissions for",
+        target="The user or role to reset permissions for",
     )
-    async def reset_permissions(
+    async def reset(
         self,
         interaction: discord.Interaction,
-        target_type: str,
-        target_user: Optional[Member] = None,
-        target_role: Optional[Role] = None,
-        target_channel: Optional[GuildChannel] = None,
+        target: TargetType,
     ):
-        """Reset permissions for a target to default"""
+        """Reset permissions for a target"""
         await interaction.response.defer()
 
         if not await self.bot.is_owner(interaction.user):
             await interaction.followup.send("❌ Only bot owners can use this command")
             return
 
-        target = target_user or target_role or target_channel
-        if not target:
-            await interaction.followup.send("❌ No target specified")
-            return
-
+        target_type = self._get_target_type(target)
         success = await permission_manager.repo.delete_by_target(
             target_type, target.id, interaction.guild_id
         )
@@ -183,14 +163,10 @@ class PermissionsCog(commands.Cog, name="Permissions"):
         else:
             await interaction.followup.send("❌ No permissions found to reset")
 
-    @perms_group.command(name="list")
-    @app_commands.describe(
-        target_type="Optional: Filter by target type (user/role/channel)"
-    )
-    async def list_permissions(
-        self, interaction: discord.Interaction, target_type: str = None
-    ):
-        """List all permission entries for the guild"""
+    @perm.command(name="list")
+    @app_commands.describe(filter="Optional: Filter by type (user/role)")
+    async def list(self, interaction: discord.Interaction, filter: str = None):
+        """List all permission entries"""
         await interaction.response.defer()
 
         if not await self.bot.is_owner(interaction.user):
@@ -201,8 +177,8 @@ class PermissionsCog(commands.Cog, name="Permissions"):
             interaction.guild_id
         )
 
-        if target_type:
-            perms = [p for p in perms if p.target_type == target_type]
+        if filter:
+            perms = [p for p in perms if p.target_type == filter]
 
         if not perms:
             await interaction.followup.send("ℹ️ No permission entries found")
@@ -219,8 +195,6 @@ class PermissionsCog(commands.Cog, name="Permissions"):
                 target = interaction.guild.get_member(perm.target_id)
             elif perm.target_type == "role":
                 target = interaction.guild.get_role(perm.target_id)
-            elif perm.target_type == "channel":
-                target = interaction.guild.get_channel(perm.target_id)
 
             target_name = target.name if target else f"Unknown ({perm.target_id})"
 
@@ -249,26 +223,20 @@ class PermissionsCog(commands.Cog, name="Permissions"):
 
         await interaction.followup.send(embed=embed)
 
-    @perms_group.command(name="sync")
+    @perm.command(name="sync")
     @app_commands.describe(
-        target_type="Type of target (role)",
-        target="The role to sync permissions from",
+        role="The role to sync permissions from",
     )
-    async def sync_discord_permissions(
+    async def sync(
         self,
         interaction: discord.Interaction,
-        target_type: str,
-        target: discord.Role,
+        role: discord.Role,
     ):
-        """Sync Discord role permissions with bot permissions"""
+        """Sync Discord role permissions"""
         await interaction.response.defer()
 
-        if target_type != "role":
-            await interaction.followup.send("❌ Can only sync permissions from roles")
-            return
-
         # Convert Discord permissions to bot permissions
-        discord_perms = target.permissions
+        discord_perms = role.permissions
         permission_updates = {
             perm_name: getattr(discord_perms, perm_name)
             for perm_name in permission_manager.discord_permission_map
@@ -277,44 +245,43 @@ class PermissionsCog(commands.Cog, name="Permissions"):
 
         success = await permission_manager.set_permission(
             interaction.guild_id,
-            target_type,
-            target.id,
+            "role",
+            role.id,
             PermissionType.ALLOW,
             **permission_updates,
         )
 
         if success:
             await interaction.followup.send(
-                f"✅ Synced Discord permissions for role {target.name}"
+                f"✅ Synced Discord permissions for role {role.name}"
             )
         else:
             await interaction.followup.send("❌ Failed to sync permissions")
 
-    @perms_group.command(name="view_effective")
+    @perm.command(name="check")
     @app_commands.describe(
-        target="The user to view effective permissions for",
+        user="The user to check permissions for",
         channel="Optional: Check permissions in specific channel",
     )
-    async def view_effective_permissions(
+    async def check(
         self,
         interaction: discord.Interaction,
-        target: discord.Member,
+        user: discord.Member,
         channel: Optional[discord.TextChannel] = None,
     ):
-        """View effective permissions for a user"""
+        """Check effective permissions for a user"""
         await interaction.response.defer()
 
         effective_perms = await permission_manager.get_effective_permissions(
-            interaction.guild_id, target, channel
+            interaction.guild_id, user, channel
         )
 
         embed = discord.Embed(
-            title=f"Effective Permissions for {target.name}",
+            title=f"Effective Permissions for {user.name}",
             color=discord.Color.blue(),
             description=f"Channel: {channel.name if channel else 'Global'}",
         )
 
-        # Group permissions by category
         categories = {
             "Bot Permissions": [
                 "can_use_bot",
@@ -354,41 +321,13 @@ class PermissionsCog(commands.Cog, name="Permissions"):
 
         await interaction.followup.send(embed=embed)
 
-    # Autocomplete for permission names
-    @set_permission.autocomplete("permission")
-    async def permission_autocomplete(
-        self,
-        interaction: discord.Interaction,
-        current: str,
-    ) -> list[app_commands.Choice[str]]:
-        permissions = [
-            "can_use_bot",
-            "can_manage_permissions",
-            "can_use_admin_commands",
-            "max_requests_per_day",
-        ]
-        return [
-            app_commands.Choice(name=perm, value=perm)
-            for perm in permissions
-            if current.lower() in perm.lower()
-        ][:25]
-
-    # Autocomplete for target types
-    @set_permission.autocomplete("target_type")
-    @view_permissions.autocomplete("target_type")
-    @reset_permissions.autocomplete("target_type")
-    @list_permissions.autocomplete("target_type")
-    async def target_type_autocomplete(
-        self,
-        interaction: discord.Interaction,
-        current: str,
-    ) -> list[app_commands.Choice[str]]:
-        target_types = ["user", "role", "channel"]
-        return [
-            app_commands.Choice(name=t_type, value=t_type)
-            for t_type in target_types
-            if current.lower() in t_type.lower()
-        ]
+    def _get_target_type(self, target: TargetType) -> str:
+        """Helper method to determine target type"""
+        if isinstance(target, Member):
+            return "user"
+        elif isinstance(target, Role):
+            return "role"
+        raise ValueError("Invalid target type")
 
 
 async def setup(bot):
