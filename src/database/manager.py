@@ -6,6 +6,7 @@ from src.config import Config
 from src.utils.logger import logger
 from contextlib import asynccontextmanager
 from src.database.migrations import MigrationManager
+from sqlalchemy.sql import text
 
 Base = declarative_base()
 
@@ -50,3 +51,24 @@ class DatabaseManager:
     async def run_migrations(self):
         """Run all pending migrations"""
         self.migrations.upgrade()
+
+    async def initialize_database(self):
+        """Initialize database with tables and run pending migrations"""
+        try:
+            async with self.engine.begin() as conn:
+                # Drop alembic_version table if it exists to start fresh
+                await conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+
+            # Create tables if they don't exist
+            await self.create_tables()
+
+            # Stamp the initial migration
+            self.migrations.stamp("base")
+
+            # Now create and run the initial migration
+            self.migrations.create_migration("Initial setup", autogenerate=True)
+            await self.run_migrations()
+
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {e}")
+            raise
