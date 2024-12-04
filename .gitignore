@@ -7,3 +7,4 @@ __pycache__/
 data/sqlite/bot.db
 .lancedb/
 .git/
+data/database.sqlite

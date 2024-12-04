@@ -15,8 +15,8 @@ async def main():
     Main async entry point for the Discord bot
     """
     try:
-        # Create bot instance
-        bot = create_bot()
+        # Create bot instance - add await here
+        bot = await create_bot()
 
         # Get configuration
         config = Config()

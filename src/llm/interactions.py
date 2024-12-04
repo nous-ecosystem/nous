@@ -11,13 +11,25 @@ class InteractionHandler:
             str, ShortTermMemory
         ] = {}  # Dict to store ShortTermMemory instances per channel
 
-    def get_memory(self, channel_id: str) -> ShortTermMemory:
-        if channel_id not in self.memories:
-            self.memories[channel_id] = ShortTermMemory()
-        return self.memories[channel_id]
+    def get_memory(
+        self, channel_id: str, channel: discord.abc.Messageable
+    ) -> ShortTermMemory:
+        # Create a unique identifier that distinguishes between DM and server channels
+        memory_key = (
+            f"dm_{channel_id}"
+            if isinstance(channel, discord.DMChannel)
+            else f"server_{channel_id}"
+        )
+
+        if memory_key not in self.memories:
+            self.memories[memory_key] = ShortTermMemory()
+        return self.memories[memory_key]
 
     async def handle_message(self, message: discord.Message) -> str:
-        memory: ShortTermMemory = self.get_memory(str(message.channel.id))
+        # Pass both channel ID and channel object
+        memory: ShortTermMemory = self.get_memory(
+            str(message.channel.id), message.channel
+        )
 
         # Add user message to memory
         memory.add_message("user", message.content)
