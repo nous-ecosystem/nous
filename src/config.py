@@ -2,9 +2,12 @@
 
 import os
 from dotenv import load_dotenv
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -17,9 +20,30 @@ class Config:
         return cls._instance
 
     def _initialize(self):
+        # Force reload environment variables
+        load_dotenv(override=True)
+
+        # Add detailed logging for owner ID
+        raw_owner_id = os.getenv("DISCORD_OWNER_ID")
+        logger.info(
+            f"Raw DISCORD_OWNER_ID from env: {raw_owner_id!r}"
+        )  # Use !r for exact representation
+
+        try:
+            if not raw_owner_id:
+                logger.error("DISCORD_OWNER_ID is not set in environment variables")
+                self.DISCORD_OWNER_ID = None
+            else:
+                self.DISCORD_OWNER_ID = int(raw_owner_id)
+                logger.info(
+                    f"Successfully parsed DISCORD_OWNER_ID: {self.DISCORD_OWNER_ID}"
+                )
+        except ValueError as e:
+            logger.error(f"Failed to parse DISCORD_OWNER_ID '{raw_owner_id}': {e}")
+            self.DISCORD_OWNER_ID = None
+
         self.DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
         self.DISCORD_SECRET = os.getenv("DISCORD_SECRET")
-        self.DISCORD_OWNER_ID = os.getenv("DISCORD_OWNER_ID")
         self.DISCORD_COMMAND_PREFIX = os.getenv("DISCORD_COMMAND_PREFIX")
 
         self.XAI_API_KEY = os.getenv("XAI_API_KEY")
@@ -42,6 +66,11 @@ class Config:
         self.SUPABASE_SERVICE_ROLE_SECRET = os.getenv("SUPABASE_SERVICE_ROLE_SECRET")
         self.SUPABASE_URL = os.getenv("SUPABASE_URL")
         self.SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+    def reload(self):
+        """Force reload of all configuration values"""
+        self._initialize()
+        logger.info("Configuration reloaded")
 
 
 # Usage example

@@ -1,5 +1,6 @@
 from sqlalchemy import Column, String, BigInteger, Boolean, Integer, Enum
 from src.database.models import BaseModel
+from src.config import Config
 import enum
 import discord
 
@@ -43,3 +44,10 @@ class Permission(BaseModel):
 
     class Config:
         unique_together = (("target_type", "target_id", "guild_id", "permission_type"),)
+
+    def is_owner(self, user_id):
+        config = Config()
+        owner_id = int(config.DISCORD_OWNER_ID)
+        user_id = int(user_id)
+        print(f"Checking owner: User ID {user_id} vs Owner ID {owner_id}")
+        return user_id == owner_id

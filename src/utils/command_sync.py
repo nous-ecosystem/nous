@@ -6,17 +6,8 @@ from typing import Dict, Optional
 from src.utils.logger import logger
 from src.database.manager import DatabaseManager
 from sqlalchemy import Column, String, select
-from src.database.models import BaseModel
+from src.database.models import CommandHash
 import discord
-
-
-class CommandHash(BaseModel):
-    __tablename__ = "command_hashes"
-
-    guild_id = Column(String, primary_key=True, default="global")
-    command_hash = Column(String, nullable=False)
-
-    __mapper_args__ = {"primary_key": [guild_id]}
 
 
 class CommandSyncer:
