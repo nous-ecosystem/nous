@@ -5,6 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.config import Config
 from src.utils.logger import logger
 from contextlib import asynccontextmanager
+from src.database.migrations import MigrationManager
 
 Base = declarative_base()
 
@@ -25,6 +26,7 @@ class DatabaseManager:
         self.SessionLocal = sessionmaker(
             bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )
+        self.migrations = MigrationManager()
 
     async def create_tables(self):
         """Create all tables in the database"""
@@ -44,3 +46,7 @@ class DatabaseManager:
             raise
         finally:
             await session.close()
+
+    async def run_migrations(self):
+        """Run all pending migrations"""
+        self.migrations.upgrade()

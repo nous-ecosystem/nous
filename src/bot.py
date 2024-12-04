@@ -5,6 +5,58 @@ from src.utils.logger import logger
 from src.llm.events import setup_llm_events
 from src.database.manager import DatabaseManager
 from src.module_manager import ModuleManager
+from src.utils.permissions import permission_manager
+
+
+class Bot(commands.Bot):
+    def __init__(self):
+        # Get configuration
+        self.config = Config()
+
+        # Set up intents
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.members = True
+        intents.dm_messages = True
+        intents.dm_reactions = True
+        intents.dm_typing = True
+        intents.guild_messages = True
+
+        # Initialize bot with command prefix and intents
+        super().__init__(
+            command_prefix=self.config.DISCORD_COMMAND_PREFIX or "!", intents=intents
+        )
+
+        # Initialize managers
+        self.db = DatabaseManager()
+        self.module_manager = ModuleManager(self)
+        self.permission_manager = permission_manager
+
+    async def setup_hook(self):
+        """Initialize bot components before starting"""
+        try:
+            # Initialize database
+            await self.db.create_tables()
+            logger.info("Database tables created successfully")
+
+            # Set up LLM event handlers
+            await setup_llm_events(self)
+            logger.info("LLM events setup complete")
+
+            # Load all cog modules
+            loaded_modules = await self.module_manager.load_all_modules()
+            logger.info(
+                f"Loaded {len(loaded_modules)} modules: {', '.join(loaded_modules)}"
+            )
+
+        except Exception as e:
+            logger.error(f"Error during bot setup: {str(e)}")
+            raise
+
+    async def on_ready(self):
+        """Log when the bot is ready and connected"""
+        logger.info(f"Logged in as {self.user.name} (ID: {self.user.id})")
+        logger.info("------")
 
 
 async def create_bot():
@@ -12,40 +64,11 @@ async def create_bot():
     Create and configure the Discord bot instance
 
     Returns:
-        commands.Bot: Configured Discord bot
+        Bot: Configured Discord bot
     """
-    # Get configuration
-    config = Config()
-
-    # Set up intents
-    intents = discord.Intents.default()
-    intents.message_content = True
-    intents.members = True
-    intents.dm_messages = True
-    intents.dm_reactions = True
-    intents.dm_typing = True
-    intents.guild_messages = True
-
-    # Create bot with command prefix and intents
-    bot = commands.Bot(
-        command_prefix=config.DISCORD_COMMAND_PREFIX or "!", intents=intents
-    )
-
-    # Initialize database
-    db = DatabaseManager()
-    await db.create_tables()
-
-    @bot.event
-    async def on_ready():
-        """Log when the bot is ready and connected"""
-        # Set up LLM event handlers
-        await setup_llm_events(bot)
-
-        # Load all cog modules
-        module_manager = ModuleManager(bot)
-        await module_manager.load_all_modules()
-
-        logger.info(f"Logged in as {bot.user.name} (ID: {bot.user.id})")
-        logger.info("------")
-
-    return bot
+    try:
+        bot = Bot()
+        return bot
+    except Exception as e:
+        logger.error(f"Failed to create bot: {str(e)}")
+        raise

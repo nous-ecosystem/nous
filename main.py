@@ -6,7 +6,6 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
 
 from src.bot import create_bot
-from src.config import Config
 from src.utils.logger import logger
 
 
@@ -15,14 +14,11 @@ async def main():
     Main async entry point for the Discord bot
     """
     try:
-        # Create bot instance - add await here
+        # Create and initialize bot instance
         bot = await create_bot()
 
-        # Get configuration
-        config = Config()
-
-        # Start the bot
-        await bot.start(config.DISCORD_TOKEN)
+        # Start the bot using the token from bot's config
+        await bot.start(bot.config.DISCORD_TOKEN)
 
     except Exception as e:
         logger.error(f"Bot startup failed: {e}")
