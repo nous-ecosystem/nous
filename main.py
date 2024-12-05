@@ -18,7 +18,7 @@ async def main():
         bot = await create_bot()
 
         # Start the bot using the token from bot's config
-        await bot.start(bot.config.DISCORD_TOKEN)
+        await bot.start(bot.config.discord.token)
 
     except Exception as e:
         logger.error(f"Bot startup failed: {e}")

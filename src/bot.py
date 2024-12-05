@@ -14,6 +14,10 @@ class Bot(commands.Bot):
         # Get configuration
         self.config = Config()
 
+        # Validate configuration
+        if not self.config.validate():
+            raise ValueError("Invalid configuration")
+
         # Set up intents
         intents = discord.Intents.default()
         intents.message_content = True
@@ -25,8 +29,14 @@ class Bot(commands.Bot):
 
         # Initialize bot with command prefix and intents
         super().__init__(
-            command_prefix=self.config.DISCORD_COMMAND_PREFIX or "!", intents=intents
+            command_prefix=self.config.discord.command_prefix,
+            intents=intents,
+            owner_id=self.config.discord.owner_id,
         )
+
+        # Set up activity if configured
+        if self.config.discord.activity:
+            self.activity = discord.Game(name=self.config.discord.activity)
 
         # Initialize managers
         self.db = DatabaseManager()

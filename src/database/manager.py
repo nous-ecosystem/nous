@@ -22,8 +22,12 @@ class DatabaseManager:
 
     def _initialize(self):
         config = Config()
-        sqlite_url = "sqlite+aiosqlite:///./data/database.sqlite"
-        self.engine = create_async_engine(sqlite_url, echo=False)
+        engine_settings = {
+            "echo": config.database.echo,
+            **config.database.pooling_settings,
+        }
+
+        self.engine = create_async_engine(config.database.url, **engine_settings)
         self.SessionLocal = sessionmaker(
             bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )

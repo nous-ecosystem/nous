@@ -7,7 +7,7 @@ from src.config import Config  # Import the Config class
 class GroqProvider:
     def __init__(self):
         config = Config()  # Create an instance of Config
-        self.client = AsyncGroq(api_key=config.GROQ_API_KEY)
+        self.client = AsyncGroq(api_key=config.groq_api_key)
 
     async def chat_completion(
         self,

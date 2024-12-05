@@ -13,6 +13,21 @@ ChannelType = Union[TextChannel, VoiceChannel, CategoryChannel]
 MemberRoleType = Union[Member, Role]
 
 
+class TargetIndicator(discord.ui.Button):
+    def __init__(self, text: str):
+        super().__init__(style=discord.ButtonStyle.secondary, label=text, disabled=True)
+
+
+class PermissionCategory:
+    def __init__(
+        self, display_name: str, description: str, permissions: dict, emoji: str
+    ):
+        self.display_name = display_name
+        self.description = description
+        self.permissions = permissions
+        self.emoji = emoji
+
+
 class PermissionsView(discord.ui.View):
     def __init__(self, cog, interaction, target):
         super().__init__(timeout=180)
@@ -21,52 +36,59 @@ class PermissionsView(discord.ui.View):
         self.target = target
         self.current_view = "categories"
         self.permission_categories = {
-            "admin_perms": {
-                "display": "Admin Permissions",
-                "permissions": {
-                    "manage_server": "Manage Server",
-                    "manage_roles": "Manage Roles",
-                    "manage_channels": "Manage Channels",
+            "general": PermissionCategory(
+                "General Access",
+                "Basic bot usage and access permissions",
+                {
+                    "use_commands": "Use Basic Commands",
+                    "view_content": "View Bot Content",
+                    "interact_features": "Use Basic Features",
                 },
-            },
-            "message_perms": {
-                "display": "Message Permissions",
-                "permissions": {
-                    "send_messages": "Send Messages",
-                    "manage_messages": "Manage Messages",
-                    "embed_links": "Embed Links",
+                "🔑",
+            ),
+            "moderation": PermissionCategory(
+                "Moderation Tools",
+                "Moderation and member management capabilities",
+                {
+                    "manage_messages": "Delete/Edit Messages",
+                    "manage_members": "Manage Members",
+                    "view_logs": "View Logs",
                 },
-            },
-            "channel_perms": {
-                "display": "Channel Permissions",
-                "permissions": {
-                    "view_channels": "View Channels",
-                    "manage_channels": "Manage Channels",
-                    "connect": "Connect to Voice",
+                "🛡️",
+            ),
+            "advanced": PermissionCategory(
+                "Advanced Controls",
+                "Advanced configuration and management",
+                {
+                    "manage_settings": "Configure Bot",
+                    "manage_integrations": "Manage Integrations",
+                    "override_limits": "Override Limits",
                 },
-            },
-            "moderation_perms": {
-                "display": "Moderation Permissions",
-                "permissions": {
-                    "kick_members": "Kick Members",
-                    "ban_members": "Ban Members",
-                    "timeout_members": "Timeout Members",
-                },
-            },
+                "⚙️",
+            ),
         }
         self.update_view_items()
 
     def update_view_items(self):
         self.clear_items()
+
+        # Add target indicator
+        target_type = self._get_target_type_display()
+        self.add_item(TargetIndicator(f"{target_type}: {self.target.name}"))
+
         if self.current_view == "categories":
             self.add_item(CategorySelect(self.permission_categories))
         else:
-            self.add_item(
-                PermissionSelect(
-                    self.permission_categories[self.current_view]["permissions"]
-                )
-            )
+            category = self.permission_categories[self.current_view]
+            self.add_item(PermissionSelect(category.permissions))
             self.add_item(BackButton())
+
+    def _get_target_type_display(self):
+        if isinstance(self.target, discord.Member):
+            return "User"
+        elif isinstance(self.target, discord.Role):
+            return "Role"
+        return "Channel"
 
     async def on_timeout(self):
         for child in self.children:
@@ -177,65 +199,78 @@ class BackButton(discord.ui.Button):
 
 async def create_permissions_embed(target, category_data, current_perms):
     embed = discord.Embed(
-        title=f"Permission Management - {category_data['display']}",
+        title=f"{category_data.emoji} {category_data.display_name}",
+        description=category_data.description,
         color=discord.Color.blue(),
     )
 
     target_type = (
-        "User"
+        "👤 User"
         if isinstance(target, Member)
-        else "Role"
+        else "🎭 Role"
         if isinstance(target, Role)
-        else "Channel"
+        else "📝 Channel"
     )
-
     embed.add_field(
-        name="Target", value=f"**{target.name}** (`{target_type}`)", inline=False
-    )
-
-    status_list = []
-    for perm_name, display_name in category_data["permissions"].items():
-        value = getattr(current_perms, perm_name, False)
-        emoji = "✅" if value else "❌"
-        status_list.append(f"{emoji} {display_name}")
-
-    embed.add_field(
-        name="Permissions",
-        value="\n".join(status_list) if status_list else "No permissions available",
+        name="Managing Permissions For:",
+        value=f"{target_type} **{target.name}**",
         inline=False,
     )
 
+    status_list = []
+    for perm_name, display_name in category_data.permissions.items():
+        value = getattr(current_perms, perm_name, False)
+        emoji = "✅" if value else "❌"
+        status_list.append(f"{emoji} **{display_name}**")
+
+    embed.add_field(
+        name="Current Settings",
+        value="\n".join(status_list) if status_list else "*No permissions configured*",
+        inline=False,
+    )
+
+    embed.set_footer(
+        text="Select a permission to toggle it • Changes are saved automatically"
+    )
     return embed
 
 
 async def create_category_overview_embed(target, categories, current_perms):
-    embed = discord.Embed(title="Permission Management", color=discord.Color.blue())
+    embed = discord.Embed(
+        title="🔐 Permission Management",
+        description="Select a category to manage specific permissions",
+        color=discord.Color.blue(),
+    )
 
     target_type = (
-        "User"
+        "👤 User"
         if isinstance(target, Member)
-        else "Role"
+        else "🎭 Role"
         if isinstance(target, Role)
-        else "Channel"
+        else "📝 Channel"
     )
-
     embed.add_field(
-        name="Target", value=f"**{target.name}** (`{target_type}`)", inline=False
+        name="Managing Permissions For:",
+        value=f"{target_type} **{target.name}**",
+        inline=False,
     )
 
-    status_list = []
     for category_name, category_data in categories.items():
-        category_enabled = any(
-            getattr(current_perms, perm_name, False)
-            for perm_name in category_data["permissions"].keys()
+        enabled_count = sum(
+            1
+            for perm_name in category_data.permissions.keys()
+            if getattr(current_perms, perm_name, False)
         )
-        emoji = "✅" if category_enabled else "❌"
-        status_list.append(f"{emoji} {category_data['display']}")
+        total_count = len(category_data.permissions)
 
-    embed.add_field(
-        name="Permission Categories", value="\n".join(status_list), inline=False
-    )
+        status = f"{enabled_count}/{total_count} enabled"
+        embed.add_field(
+            name=f"{category_data.emoji} {category_data.display_name}",
+            value=f"{category_data.description}\n*{status}*",
+            inline=False,
+        )
 
+    embed.set_footer(text="Select a category to manage its permissions")
     return embed
 
 
@@ -252,9 +287,7 @@ class PermissionsCog(commands.Cog, name="Permissions"):
         self.bot = bot
 
     @app_commands.command(name="perms")
-    @app_commands.checks.has_permissions(
-        administrator=True
-    )  # Changed from owner check to admin check
+    @app_commands.checks.has_permissions(administrator=True)
     @app_commands.describe(
         member="The user to manage permissions for",
         role="The role to manage permissions for",
@@ -268,68 +301,36 @@ class PermissionsCog(commands.Cog, name="Permissions"):
         channel: Optional[ChannelType] = None,
     ):
         """Open the permissions management GUI for the specified target"""
-        # Check if exactly one target was provided
-        provided_params = sum(param is not None for param in [member, role, channel])
-        if provided_params != 1:
-            await interaction.response.send_message(
-                "Invalid usage. Please specify a valid user, role, or channel.",
-                ephemeral=True,
+        try:
+            # Check if exactly one target was provided
+            provided_params = sum(
+                param is not None for param in [member, role, channel]
             )
-            return
+            if provided_params != 1:
+                await interaction.response.send_message(
+                    "Please specify exactly one target (user, role, or channel).",
+                    ephemeral=True,
+                )
+                return
 
-        target = member or role or channel
+            target = member or role or channel
+            view = PermissionsView(self, interaction, target)
 
-        if not target:
-            await interaction.response.send_message(
-                "Invalid target. Please specify a valid user, role, or channel.",
-                ephemeral=True,
-            )
-            return
-
-        view = PermissionsView(self, interaction, target)
-
-        # Get current permissions
-        current_perms = await permission_manager.repo.get_permissions(
-            target_type=self._get_target_type(target),
-            target_id=target.id,
-            guild_id=interaction.guild_id,
-        )
-
-        embed = discord.Embed(title="Permission Management", color=discord.Color.blue())
-
-        # Add target info
-        target_type = (
-            "User"
-            if isinstance(target, Member)
-            else "Role"
-            if isinstance(target, Role)
-            else "Channel"
-        )
-
-        target_emoji = "X"  # Placeholder for emoji
-        embed.add_field(
-            name="Target",
-            value=f"{target_emoji} **{target.name}** (`{target_type}`)",
-            inline=False,
-        )
-
-        # Add current permissions status if any exist
-        if current_perms:
-            status_list = []
-            for perm_name, display_name in view.permission_categories["admin_perms"][
-                "permissions"
-            ].items():
-                value = getattr(current_perms, perm_name, False)
-                emoji = "✅" if value else "❌"
-                status_list.append(f"{emoji} {display_name}")
-
-            embed.add_field(
-                name="Current Permissions",
-                value="\n".join(status_list),
-                inline=False,
+            # Get current permissions and create initial embed
+            current_perms = await get_current_permissions(interaction, view)
+            embed = await create_category_overview_embed(
+                target, view.permission_categories, current_perms
             )
 
-        await interaction.response.send_message(embed=embed, view=view)
+            await interaction.response.send_message(embed=embed, view=view)
+
+        except Exception as e:
+            logger.error(f"Error in perms command: {str(e)}")
+            if not interaction.response.is_done():
+                await interaction.response.send_message(
+                    "An error occurred while setting up permissions management.",
+                    ephemeral=True,
+                )
 
     async def handle_user(self, interaction: discord.Interaction, target: Member):
         target = interaction.guild.get_member(target.id)
