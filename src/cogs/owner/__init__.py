@@ -1,5 +1,5 @@
 # This file can be empty, it just marks the directory as a Python package
 
-from .permissions import PermissionsCog
+from .settings import OwnerSettingsCog
 
-__all__ = ["PermissionsCog"]
+__all__ = ["OwnerSettingsCog"]
