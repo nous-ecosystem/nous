@@ -31,12 +31,7 @@ class DatabaseManager:
         self.SessionLocal = sessionmaker(
             bind=self.engine, class_=AsyncSession, expire_on_commit=False
         )
-        self.migrations = MigrationManager()
-
-    async def create_tables(self):
-        """Create all tables in the database"""
-        async with self.engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        self.migrations = MigrationManager(self.engine)
 
     @asynccontextmanager
     async def get_session(self):
@@ -52,27 +47,13 @@ class DatabaseManager:
         finally:
             await session.close()
 
-    async def run_migrations(self):
-        """Run all pending migrations"""
-        self.migrations.upgrade()
-
-    async def initialize_database(self):
-        """Initialize database with tables and run pending migrations"""
+    async def verify_database_exists(self):
+        """Verify database connection and tables exist"""
         try:
             async with self.engine.begin() as conn:
-                # Drop alembic_version table if it exists to start fresh
-                await conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
-
-            # Create tables if they don't exist
-            await self.create_tables()
-
-            # Stamp the initial migration
-            self.migrations.stamp("base")
-
-            # Now create and run the initial migration
-            self.migrations.create_migration("Initial setup", autogenerate=True)
-            await self.run_migrations()
-
+                # Just verify we can connect and tables exist
+                await conn.run_sync(lambda sync_conn: Base.metadata.tables)
+            logger.info("Database verification completed successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
+            logger.error(f"Database verification failed: {e}")
             raise

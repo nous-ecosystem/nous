@@ -1,6 +1,5 @@
 from groq import AsyncGroq
 import base64
-import os
 from src.config import Config  # Import the Config class
 
 
